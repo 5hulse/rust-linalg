@@ -1,15 +1,75 @@
+use approx::AbsDiffEq;
 use num::Num;
 use std::fmt;
 use std::ops::{Add, Mul, Sub};
 
-#[derive(Debug)]
-pub struct Matrix<T: Num + Copy> {
-    data: Vec<T>,
-    shape: [usize; 2],
-    strides: [usize; 2],
+/// 2-dimensional matrix object.
+#[derive(Debug, PartialEq)]
+pub struct Matrix<T: Num + Copy + AbsDiffEq> {
+    pub data: Vec<T>,
+    pub shape: [usize; 2],
+    pub strides: [usize; 2],
 }
 
-impl<T: Num + Copy> Matrix<T> {
+impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
+    /// Create a new matrix.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A contiguous vector of the entries in the matrix, expressed in row-major order.
+    /// * `shape` - The number of rows and columns in the matrix.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Matrix<T>)` if `data.len() == shape[0] * shape[1]`, and `Err(String)` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// Creates a 90° rotation matrix:
+    ///
+    /// ```
+    /// #[macro_use]
+    /// extern crate approx;
+    /// # fn main() {
+    ///
+    /// use std::f64::consts::FRAC_PI_2;
+    /// use linalg::matrix::Matrix;
+    ///
+    /// let rot_90: Matrix<f64> = Matrix::new(
+    ///     vec![
+    ///         (FRAC_PI_2).cos(),
+    ///         -(FRAC_PI_2).sin(),
+    ///         (FRAC_PI_2).sin(),
+    ///         (FRAC_PI_2).cos(),
+    ///     ],
+    ///     [2, 2],
+    /// ).expect("Error calling `Matrix::new`");
+    ///
+    /// // `Matrix<T>` implements the `approx::AbsDiffEq` trait,
+    /// // enabling comparison up to machine epsilon precision.
+    /// assert_abs_diff_eq!(
+    ///     rot_90,
+    ///     Matrix::<f64> {
+    ///         data: vec![0.0, -1.0, 1.0, 0.0],
+    ///         shape: [2, 2],
+    ///         strides: [2, 1],
+    ///     }
+    /// );
+    /// # }
+    /// ```
+    ///
+    /// Length of `data` doesn't comply with `shape`:
+    ///
+    /// ```
+    /// use linalg::matrix::Matrix;
+    ///
+    /// let err_msg = Matrix::new(
+    ///     vec![1.0, 2.0, 3.0],
+    ///     [2, 2],
+    /// ).unwrap_err();
+    ///
+    /// assert_eq!(err_msg, "Incompatible shape (2x2) for data of size 3.")
+    /// ```
     pub fn new(data: Vec<T>, shape: [usize; 2]) -> Result<Self, String> {
         if data.len() != shape.iter().product() {
             return Err(format!(
@@ -26,6 +86,29 @@ impl<T: Num + Copy> Matrix<T> {
         })
     }
 
+    /// Create a column (N x 1) vector.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - elements of the vector.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use linalg::matrix::Matrix;
+    ///
+    /// let vector = Matrix::<f64>::new_vector(
+    ///     vec![1.0, 2.0, 3.0],
+    /// );
+    ///
+    /// assert_eq!(
+    ///     vector,
+    ///     Matrix {
+    ///         data: vec![1.0, 2.0, 3.0],
+    ///         shape: [3, 1],
+    ///         strides: [1, 1],
+    ///     },
+    /// );
     pub fn new_vector(data: Vec<T>) -> Self {
         let length = data.len();
         Matrix::<T> {
@@ -35,6 +118,27 @@ impl<T: Num + Copy> Matrix<T> {
         }
     }
 
+    /// Create a matrix of zeros
+    ///
+    /// # Arguments
+    ///
+    /// * `shape` - Shape of the matrix
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use linalg::matrix::Matrix;
+    ///
+    /// let zeros = Matrix::<f64>::zeros([3, 2]);
+    ///
+    /// assert_eq!(
+    ///     zeros,
+    ///     Matrix {
+    ///         data: vec![0.0; 6],
+    ///         shape: [3, 2],
+    ///         strides: [2, 1],
+    ///     },
+    /// );
     pub fn zeros(shape: [usize; 2]) -> Self {
         let data = vec![T::zero(); shape.iter().product()];
         Self {
@@ -44,6 +148,27 @@ impl<T: Num + Copy> Matrix<T> {
         }
     }
 
+    /// Create a matrix of ones
+    ///
+    /// # Arguments
+    ///
+    /// * `shape` - Shape of the matrix
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use linalg::matrix::Matrix;
+    ///
+    /// let zeros = Matrix::<i32>::ones([2, 3]);
+    ///
+    /// assert_eq!(
+    ///     zeros,
+    ///     Matrix {
+    ///         data: vec![1; 6],
+    ///         shape: [2, 3],
+    ///         strides: [3, 1],
+    ///     },
+    /// );
     pub fn ones(shape: [usize; 2]) -> Self {
         let data = vec![T::one(); shape.iter().product()];
         Self {
@@ -53,6 +178,29 @@ impl<T: Num + Copy> Matrix<T> {
         }
     }
 
+    /// Create a matrix with identical elements
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - Value for all elements to adopt
+    /// * `shape` - Shape of the matrix
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use linalg::matrix::Matrix;
+    /// use std::f64::consts::PI;
+    ///
+    /// let pi_vector = Matrix::<f64>::uniform(PI, [4, 1]);
+    ///
+    /// assert_eq!(
+    ///     pi_vector,
+    ///     Matrix {
+    ///         data: vec![PI; 4],
+    ///         shape: [4, 1],
+    ///         strides: [1, 1],
+    ///     },
+    /// );
     pub fn uniform(value: T, shape: [usize; 2]) -> Self {
         let data = vec![value * T::one(); shape.iter().product()];
         Self {
@@ -112,6 +260,17 @@ impl<T: Num + Copy> Matrix<T> {
         }
 
         rows
+    }
+
+    pub fn data_row_major(&self) -> Vec<T> {
+        let mut data = Vec::with_capacity(self.size());
+        for row in self.rows().into_iter() {
+            for elem in row.into_iter() {
+                data.push(elem);
+            }
+        }
+
+        data
     }
 
     fn col_indices(&self) -> Vec<Vec<usize>> {
@@ -257,6 +416,23 @@ impl<T: Num + Copy> Matrix<T> {
         })
     }
 
+    pub fn hadamard(&self, other: &Self) -> Result<Matrix<T>, String> {
+        self.check_identical_sizes(&other)?;
+
+        let mut data: Vec<T> = Vec::with_capacity(self.size());
+        for (row_a, row_b) in self.rows().into_iter().zip(other.rows().into_iter()) {
+            for (a, b) in row_a.into_iter().zip(row_b.into_iter()) {
+                data.push(a * b);
+            }
+        }
+
+        Ok(Matrix {
+            data,
+            shape: self.shape.clone(),
+            strides: [self.shape[1], 1],
+        })
+    }
+
     fn size(&self) -> usize {
         self.shape.iter().product()
     }
@@ -284,7 +460,10 @@ impl<T: Num + Copy> Matrix<T> {
     }
 }
 
-impl<T: Num + Copy + fmt::Display> fmt::Display for Matrix<T> {
+impl<T> fmt::Display for Matrix<T>
+where
+    T: Num + Copy + fmt::Display + AbsDiffEq,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s: String = String::from("[");
         for row in self.rows() {
@@ -303,7 +482,10 @@ impl<T: Num + Copy + fmt::Display> fmt::Display for Matrix<T> {
     }
 }
 
-impl<T: Num + Copy> Add for Matrix<T> {
+impl<T> Add for Matrix<T>
+where
+    T: Num + Copy + fmt::Display + AbsDiffEq,
+{
     type Output = Matrix<T>;
 
     fn add(self, other: Self) -> Self::Output {
@@ -314,7 +496,10 @@ impl<T: Num + Copy> Add for Matrix<T> {
     }
 }
 
-impl<T: Num + Copy> Add for &Matrix<T> {
+impl<T> Add for &Matrix<T>
+where
+    T: Num + Copy + fmt::Display + AbsDiffEq,
+{
     type Output = Matrix<T>;
 
     fn add(self, other: Self) -> Self::Output {
@@ -325,7 +510,10 @@ impl<T: Num + Copy> Add for &Matrix<T> {
     }
 }
 
-impl<T: Num + Copy> Mul for Matrix<T> {
+impl<T> Mul for Matrix<T>
+where
+    T: Num + Copy + fmt::Display + AbsDiffEq,
+{
     type Output = Matrix<T>;
 
     fn mul(self, other: Self) -> Self::Output {
@@ -336,7 +524,10 @@ impl<T: Num + Copy> Mul for Matrix<T> {
     }
 }
 
-impl<T: Num + Copy> Mul for &Matrix<T> {
+impl<T> Mul for &Matrix<T>
+where
+    T: Num + Copy + fmt::Display + AbsDiffEq,
+{
     type Output = Matrix<T>;
 
     fn mul(self, other: Self) -> Self::Output {
@@ -347,7 +538,10 @@ impl<T: Num + Copy> Mul for &Matrix<T> {
     }
 }
 
-impl<T: Num + Copy> Sub for Matrix<T> {
+impl<T> Sub for Matrix<T>
+where
+    T: Num + Copy + fmt::Display + AbsDiffEq,
+{
     type Output = Matrix<T>;
 
     fn sub(self, other: Self) -> Self::Output {
@@ -358,7 +552,10 @@ impl<T: Num + Copy> Sub for Matrix<T> {
     }
 }
 
-impl<T: Num + Copy> Sub for &Matrix<T> {
+impl<T> Sub for &Matrix<T>
+where
+    T: Num + Copy + fmt::Display + AbsDiffEq,
+{
     type Output = Matrix<T>;
 
     fn sub(self, other: Self) -> Self::Output {
@@ -369,13 +566,26 @@ impl<T: Num + Copy> Sub for &Matrix<T> {
     }
 }
 
-impl<T: Num + Copy> PartialEq for Matrix<T> {
-    fn eq(&self, other: &Self) -> bool {
-        (self.data == other.data) && (self.shape == other.shape) && (self.strides == other.strides)
+impl<T> AbsDiffEq for Matrix<T>
+where
+    T: AbsDiffEq + Num + Copy,
+    T::Epsilon: Copy,
+{
+    type Epsilon = T::Epsilon;
+
+    fn default_epsilon() -> T::Epsilon {
+        T::default_epsilon()
     }
 
-    fn ne(&self, other: &Self) -> bool {
-        (self.shape != other.shape) || (self.data != other.data) || (self.strides != other.strides)
+    fn abs_diff_eq(&self, other: &Self, epsilon: T::Epsilon) -> bool {
+        match self.shape == other.shape {
+            true => (),
+            false => return false,
+        };
+        self.data_row_major()
+            .iter()
+            .zip(other.data_row_major().iter())
+            .all(|(a, b)| T::abs_diff_eq(a, b, epsilon))
     }
 }
 
@@ -390,7 +600,6 @@ fn shape_str(shape: &[usize; 2]) -> String {
 #[cfg(test)]
 pub mod tests {
     use crate::matrix::*;
-    use num::Complex;
 
     fn m_2by2_f64_1() -> Matrix<f64> {
         Matrix::new(vec![1.0, 2.0, 3.0, 4.0], [2, 2]).unwrap()
@@ -410,28 +619,6 @@ pub mod tests {
             Matrix::<f64>::new(vec![1.0, 2.0, 3.0, 4.0], [2, 2]).expect("fail"),
             Matrix {
                 data: vec![1.0, 2.0, 3.0, 4.0],
-                shape: [2, 2],
-                strides: [2, 1],
-            }
-        );
-        assert_eq!(
-            Matrix::<Complex<f64>>::new(
-                vec![
-                    Complex::new(1.0, 0.0),
-                    Complex::new(0.0, 1.0),
-                    Complex::new(-1.0, 1.0),
-                    Complex::new(0.0, 0.0),
-                ],
-                [2, 2]
-            )
-            .expect("new fail"),
-            Matrix::<Complex<f64>> {
-                data: vec![
-                    Complex::new(1.0, 0.0),
-                    Complex::new(0.0, 1.0),
-                    Complex::new(-1.0, 1.0),
-                    Complex::new(0.0, 0.0),
-                ],
                 shape: [2, 2],
                 strides: [2, 1],
             }
@@ -470,9 +657,9 @@ pub mod tests {
     #[test]
     pub fn test_ones() {
         assert_eq!(
-            Matrix::<Complex<f64>>::ones([5, 1]),
-            Matrix::<Complex<f64>> {
-                data: [Complex::new(1.0, 0.0); 5].to_vec(),
+            Matrix::<f64>::ones([5, 1]),
+            Matrix::<f64> {
+                data: vec![1.0; 5],
                 shape: [5, 1],
                 strides: [1, 1],
             }
@@ -482,9 +669,9 @@ pub mod tests {
     #[test]
     pub fn test_uniform() {
         assert_eq!(
-            Matrix::<Complex<f64>>::uniform(Complex::new(std::f64::consts::PI, 0.0), [4, 2]),
-            Matrix::<Complex<f64>> {
-                data: [Complex::new(std::f64::consts::PI, 0.0); 8].to_vec(),
+            Matrix::<f64>::uniform(std::f64::consts::PI, [4, 2]),
+            Matrix::<f64> {
+                data: [std::f64::consts::PI; 8].to_vec(),
                 shape: [4, 2],
                 strides: [2, 1],
             }
@@ -494,19 +681,9 @@ pub mod tests {
     #[test]
     pub fn test_eye() {
         assert_eq!(
-            Matrix::<Complex<f64>>::eye(3),
+            Matrix::<f64>::eye(3),
             Matrix {
-                data: vec![
-                    Complex::new(1.0, 0.0),
-                    Complex::new(0.0, 0.0),
-                    Complex::new(0.0, 0.0),
-                    Complex::new(0.0, 0.0),
-                    Complex::new(1.0, 0.0),
-                    Complex::new(0.0, 0.0),
-                    Complex::new(0.0, 0.0),
-                    Complex::new(0.0, 0.0),
-                    Complex::new(1.0, 0.0),
-                ],
+                data: vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
                 shape: [3, 3],
                 strides: [3, 1],
             }
