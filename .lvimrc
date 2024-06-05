@@ -1,2 +1,2 @@
-nnoremap <leader>r :AsyncRun cargo run<cr>
+nnoremap <leader>d :AsyncRun cargo doc<cr>
 nnoremap <leader>t :AsyncRun cargo test<cr>

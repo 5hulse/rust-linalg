@@ -4,14 +4,20 @@ use std::fmt;
 use std::ops::{Add, Mul, Sub};
 
 /// 2-dimensional matrix object.
-#[derive(Debug, PartialEq)]
-pub struct Matrix<T: Num + Copy + AbsDiffEq> {
+#[derive(Debug)]
+pub struct Matrix<T>
+where
+    T: Num + Copy + AbsDiffEq + fmt::Display,
+{
     pub data: Vec<T>,
     pub shape: [usize; 2],
     pub strides: [usize; 2],
 }
 
-impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
+impl<T> Matrix<T>
+where
+    T: Num + Copy + AbsDiffEq + fmt::Display,
+{
     /// Create a new matrix.
     ///
     /// # Arguments
@@ -95,8 +101,7 @@ impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
     /// # Example
     ///
     /// ```
-    /// use linalg::matrix::Matrix;
-    ///
+    /// # use linalg::matrix::Matrix;
     /// let vector = Matrix::<f64>::new_vector(
     ///     vec![1.0, 2.0, 3.0],
     /// );
@@ -127,8 +132,7 @@ impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
     /// # Example
     ///
     /// ```
-    /// use linalg::matrix::Matrix;
-    ///
+    /// # use linalg::matrix::Matrix;
     /// let zeros = Matrix::<f64>::zeros([3, 2]);
     ///
     /// assert_eq!(
@@ -157,12 +161,11 @@ impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
     /// # Example
     ///
     /// ```
-    /// use linalg::matrix::Matrix;
-    ///
-    /// let zeros = Matrix::<i32>::ones([2, 3]);
+    /// # use linalg::matrix::Matrix;
+    /// let ones = Matrix::<i32>::ones([2, 3]);
     ///
     /// assert_eq!(
-    ///     zeros,
+    ///     ones,
     ///     Matrix {
     ///         data: vec![1; 6],
     ///         shape: [2, 3],
@@ -188,9 +191,8 @@ impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
     /// # Example
     ///
     /// ```
-    /// use linalg::matrix::Matrix;
+    /// # use linalg::matrix::Matrix;
     /// use std::f64::consts::PI;
-    ///
     /// let pi_vector = Matrix::<f64>::uniform(PI, [4, 1]);
     ///
     /// assert_eq!(
@@ -210,6 +212,37 @@ impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
         }
     }
 
+    /// Create an identity matrix, i.e. a matrix with 1s along the main diagonal, and 0s elsewhere.
+    ///
+    /// # Arguments
+    ///
+    /// * `size` - The number of rows (and columns).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let i_2 = Matrix::<f64>::eye(2);
+    ///
+    /// assert_eq!(
+    ///     i_2,
+    ///     Matrix {
+    ///         data: vec![1.0, 0.0, 0.0, 1.0],
+    ///         shape: [2, 2],
+    ///         strides: [2, 1],
+    ///     },
+    /// );
+    ///
+    /// let i_3 = Matrix::<f64>::eye(3);
+    ///
+    /// assert_eq!(
+    ///     i_3,
+    ///     Matrix {
+    ///         data: vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+    ///         shape: [3, 3],
+    ///         strides: [3, 1],
+    ///     },
+    /// );
     pub fn eye(size: usize) -> Self {
         let mut data = vec![T::zero(); size * size];
         let mut idx: usize;
@@ -226,6 +259,27 @@ impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
         }
     }
 
+    /// Transpose a matrix in-place.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let mut matrix = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [2, 3],
+    /// ).unwrap();
+    ///
+    /// matrix.transpose();
+    ///
+    /// assert_eq!(
+    ///     matrix,
+    ///     Matrix {
+    ///         data: vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0],
+    ///         shape: [3, 2],
+    ///         strides: [2, 1],
+    ///     },
+    /// );
     pub fn transpose(&mut self) {
         (self.shape[0], self.shape[1]) = (self.shape[1], self.shape[0]);
         (self.strides[0], self.strides[1]) = (self.strides[1], self.strides[0]);
@@ -248,6 +302,29 @@ impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
         rows
     }
 
+    /// Return the rows that the matrix comprises
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let mut matrix = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// assert_eq!(
+    ///     matrix.rows(),
+    ///     vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]],
+    /// );
+    ///
+    /// matrix.transpose();
+    ///
+    /// assert_eq!(
+    ///     matrix.rows(),
+    ///     vec![vec![1.0, 3.0, 5.0], vec![2.0, 4.0, 6.0]],
+    /// );
+    /// ```
     pub fn rows(&self) -> Vec<Vec<T>> {
         let indicess = self.row_indices();
         let mut rows: Vec<Vec<T>> = Vec::with_capacity(self.shape[0]);
@@ -262,6 +339,29 @@ impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
         rows
     }
 
+    /// Return the elements of the matrix as a contigous vector in row-major order.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let mut matrix = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [2, 3],
+    /// ).unwrap();
+    ///
+    /// assert_eq!(
+    ///     matrix.data_row_major(),
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    /// );
+    ///
+    /// matrix.transpose();
+    ///
+    /// assert_eq!(
+    ///     matrix.data_row_major(),
+    ///     vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0],
+    /// );
+    /// ```
     pub fn data_row_major(&self) -> Vec<T> {
         let mut data = Vec::with_capacity(self.size());
         for row in self.rows().into_iter() {
@@ -290,6 +390,29 @@ impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
         cols
     }
 
+    /// Return the columns that the matrix comprises.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let mut matrix = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// assert_eq!(
+    ///     matrix.cols(),
+    ///     vec![vec![1.0, 3.0, 5.0], vec![2.0, 4.0, 6.0]],
+    /// );
+    ///
+    /// matrix.transpose();
+    ///
+    /// assert_eq!(
+    ///     matrix.cols(),
+    ///     vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]],
+    /// );
+    /// ```
     pub fn cols(&self) -> Vec<Vec<T>> {
         let indicess = self.col_indices();
         let mut cols: Vec<Vec<T>> = Vec::with_capacity(self.shape[1]);
@@ -304,6 +427,96 @@ impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
         cols
     }
 
+    /// Return the elements of the matrix as a contigous vector in column-major order.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let mut matrix = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [2, 3],
+    /// ).unwrap();
+    ///
+    /// assert_eq!(
+    ///     matrix.data_col_major(),
+    ///     vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0],
+    /// );
+    ///
+    /// matrix.transpose();
+    ///
+    /// assert_eq!(
+    ///     matrix.data_col_major(),
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    /// );
+    /// ```
+    pub fn data_col_major(&self) -> Vec<T> {
+        let mut data = Vec::with_capacity(self.size());
+        for col in self.cols().into_iter() {
+            for elem in col.into_iter() {
+                data.push(elem);
+            }
+        }
+
+        data
+    }
+
+    /// Add two matrices.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - Reference to a `Matrix<T>` with the same `shape` as `self`.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Matrix<T>)` if `self.shape == other.shape`, otherwise `Err(String)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m3 = m1.ref_add(&m2).unwrap();
+    ///
+    /// assert_eq!(
+    ///     m3,
+    ///     Matrix {
+    ///         data: vec![0.0; 6],
+    ///         shape: [3, 2],
+    ///         strides: [2, 1],
+    ///     }
+    /// );
+    /// ```
+    ///
+    /// Attempt to add two matrices of incompatible shapes:
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [2, 3],
+    /// ).unwrap();
+    ///
+    /// let err_msg = m1.ref_add(&m2).unwrap_err();
+    ///
+    /// assert_eq!(
+    ///     err_msg,
+    ///     "Incompatible shapes: (3x2) vs (2x3).",
+    /// );
+    /// ```
     pub fn ref_add(&self, other: &Self) -> Result<Matrix<T>, String> {
         self.check_identical_sizes(&other)?;
 
@@ -321,6 +534,65 @@ impl<T: Num + Copy + AbsDiffEq> Matrix<T> {
         })
     }
 
+    /// Add two matrices; the matrices are moved into the method, and are no-longer available after
+    /// it is called.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - `Matrix<T>` with the same `shape` as `self`.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Matrix<T>)` if `self.shape == other.shape`, otherwise `Err(String)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m3 = m1.into_add(m2).unwrap();
+    /// // m1 and m2 no longer available
+    ///
+    /// assert_eq!(
+    ///     m3,
+    ///     Matrix {
+    ///         data: vec![0.0; 6],
+    ///         shape: [3, 2],
+    ///         strides: [2, 1],
+    ///     }
+    /// );
+    /// ```
+    ///
+    /// Attempt to add two matrices of incompatible shapes:
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [2, 3],
+    /// ).unwrap();
+    ///
+    /// let err_msg = m1.into_add(m2).unwrap_err();
+    /// // m1 and m2 no longer available
+    ///
+    /// assert_eq!(
+    ///     err_msg,
+    ///     "Incompatible shapes: (3x2) vs (2x3).",
+    /// );
+    /// ```
     pub fn into_add(self, other: Self) -> Result<Matrix<T>, String> {
         self.check_identical_sizes(&other)?;
 
@@ -482,6 +754,19 @@ where
     }
 }
 
+impl<T> PartialEq for Matrix<T>
+where
+    T: Num + Copy + fmt::Display + AbsDiffEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        (self.data_row_major() == other.data_row_major()) && (self.shape == other.shape)
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        !self.eq(other)
+    }
+}
+
 impl<T> Add for Matrix<T>
 where
     T: Num + Copy + fmt::Display + AbsDiffEq,
@@ -568,7 +853,7 @@ where
 
 impl<T> AbsDiffEq for Matrix<T>
 where
-    T: AbsDiffEq + Num + Copy,
+    T: AbsDiffEq + Num + Copy + fmt::Display,
     T::Epsilon: Copy,
 {
     type Epsilon = T::Epsilon;
