@@ -49,7 +49,7 @@ where
     ///         (FRAC_PI_2).cos(),
     ///     ],
     ///     [2, 2],
-    /// ).expect("Error calling `Matrix::new`");
+    /// ).unwrap();
     ///
     /// // `Matrix<T>` implements the `approx::AbsDiffEq` trait,
     /// // enabling comparison up to machine epsilon precision.
@@ -377,6 +377,7 @@ where
         let mut cols: Vec<Vec<usize>> = Vec::with_capacity(self.shape[1]);
         let mut start: usize;
         let mut jump: usize;
+
         for c in 0..self.shape[1] {
             let mut col: Vec<usize> = Vec::with_capacity(self.shape[0]);
             start = c * self.strides[1];
@@ -416,6 +417,7 @@ where
     pub fn cols(&self) -> Vec<Vec<T>> {
         let indicess = self.col_indices();
         let mut cols: Vec<Vec<T>> = Vec::with_capacity(self.shape[1]);
+
         for indices in indicess {
             let mut col: Vec<T> = Vec::with_capacity(self.shape[0]);
             for idx in indices {
@@ -465,7 +467,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `other` - Reference to a `Matrix<T>` with the same `shape` as `self`.
+    /// * `other` - `&Matrix<T>` with the same `shape` as `self`.
     ///
     /// # Returns
     ///
@@ -610,6 +612,62 @@ where
         })
     }
 
+    /// Subtract a matrix from another.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - `&Matrix<T>` with the same `shape` as `self`.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Matrix<T>)` if `self.shape == other.shape`, otherwise `Err(String)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m3 = m1.ref_sub(&m2).unwrap();
+    ///
+    /// assert_eq!(
+    ///     m3,
+    ///     Matrix {
+    ///         data: vec![2.0, 4.0, 6.0, 8.0, 10.0, 12.0],
+    ///         shape: [3, 2],
+    ///         strides: [2, 1],
+    ///     }
+    /// );
+    /// ```
+    ///
+    /// Attempt to add subtract a matrix with an incompatible shape:
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [2, 3],
+    /// ).unwrap();
+    ///
+    /// let err_msg = m1.ref_sub(&m2).unwrap_err();
+    ///
+    /// assert_eq!(
+    ///     err_msg,
+    ///     "Incompatible shapes: (3x2) vs (2x3).",
+    /// );
+    /// ```
     pub fn ref_sub(&self, other: &Self) -> Result<Matrix<T>, String> {
         self.check_identical_sizes(other)?;
 
@@ -627,6 +685,65 @@ where
         })
     }
 
+    /// Subtract a matrix; the matrices are moved into the method, and are no-longer available
+    /// after it is called.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - `Matrix<T>` with the same `shape` as `self`.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Matrix<T>)` if `self.shape == other.shape`, otherwise `Err(String)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m3 = m1.into_sub(m2).unwrap();
+    /// // m1 and m2 no longer available
+    ///
+    /// assert_eq!(
+    ///     m3,
+    ///     Matrix {
+    ///         data: vec![2.0, 4.0, 6.0, 8.0, 10.0, 12.0],
+    ///         shape: [3, 2],
+    ///         strides: [2, 1],
+    ///     }
+    /// );
+    /// ```
+    ///
+    /// Attempt to subtract a matrix with an incompatible shape:
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [2, 3],
+    /// ).unwrap();
+    ///
+    /// let err_msg = m1.into_sub(m2).unwrap_err();
+    /// // m1 and m2 no longer available
+    ///
+    /// assert_eq!(
+    ///     err_msg,
+    ///     "Incompatible shapes: (3x2) vs (2x3).",
+    /// );
+    /// ```
     pub fn into_sub(self, other: Self) -> Result<Matrix<T>, String> {
         self.check_identical_sizes(&other)?;
 
@@ -644,6 +761,77 @@ where
         })
     }
 
+    /// Multiply two matrices.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - `&Matrix<T>` with the same number of rows as columns in `self`.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Matrix<T>)` if `self.shape[1] == other.shape[0]`, otherwise `Err(String)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let mut m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [2, 3],
+    /// ).unwrap();
+    ///
+    /// let mut m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m3 = m1.ref_mul(&m2).unwrap();
+    ///
+    /// assert_eq!(
+    ///     m3,
+    ///     Matrix {
+    ///         data: vec![-22.0, -28.0, -49.0, -64.0],
+    ///         shape: [2, 2],
+    ///         strides: [2, 1],
+    ///     }
+    /// );
+    ///
+    /// m1.transpose();
+    /// m2.transpose();
+    ///
+    /// let m4 = m1.ref_mul(&m2).unwrap();
+    ///
+    /// assert_eq!(
+    ///     m4,
+    ///     Matrix {
+    ///         data: vec![-9.0, -19.0, -29.0, -12.0, -26.0, -40.0, -15.0, -33.0, -51.0],
+    ///         shape: [3, 3],
+    ///         strides: [3, 1],
+    ///     }
+    /// );
+    /// ```
+    ///
+    /// Attempt to multiply two matrices of incompatible shapes (i.e. `m1.shape[1] !=
+    /// m2.shape[0]`):
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let err_msg = m1.ref_mul(&m2).unwrap_err();
+    ///
+    /// assert_eq!(
+    ///     err_msg,
+    ///     "Incompatible shapes: (3x2) vs (3x2).",
+    /// );
+    /// ```
     pub fn ref_mul(&self, other: &Self) -> Result<Matrix<T>, String> {
         self.check_muliplication_pair(other)?;
 
@@ -665,6 +853,67 @@ where
             strides: [other.shape[1], 1],
         })
     }
+
+    /// Multiply two matrices; the matrices are moved into the method, and are no-longer available
+    /// after it is called.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - `Matrix<T>` with the same number of rows as columns in `self`.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Matrix<T>)` if `self.shape[1] == other.shape[0]`, otherwise `Err(String)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let mut m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [2, 3],
+    /// ).unwrap();
+    ///
+    /// let mut m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m3 = m1.into_mul(m2).unwrap();
+    /// // m1 and m2 are no longer available, cf the `ref_mul` example where they are used further.
+    ///
+    /// assert_eq!(
+    ///     m3,
+    ///     Matrix {
+    ///         data: vec![-22.0, -28.0, -49.0, -64.0],
+    ///         shape: [2, 2],
+    ///         strides: [2, 1],
+    ///     }
+    /// );
+    /// ```
+    ///
+    /// Attempt to multiply two matrices of incompatible shapes (i.e. `m1.shape[1] !=
+    /// m2.shape[0]`):
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let err_msg = m1.into_mul(m2).unwrap_err();
+    /// // m1 and m2 no longer available
+    ///
+    /// assert_eq!(
+    ///     err_msg,
+    ///     "Incompatible shapes: (3x2) vs (3x2).",
+    /// );
+    /// ```
 
     pub fn into_mul(self, other: Self) -> Result<Matrix<T>, String> {
         self.check_muliplication_pair(&other)?;
@@ -688,6 +937,62 @@ where
         })
     }
 
+    /// Compute the Hadamard (element-wise) product of two matrices.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - `&Matrix<T>` with the same shape as `self`.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Matrix<T>)` if `self.shape == other.shape`, otherwise `Err(String)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m3 = m1.hadamard(&m2).unwrap();
+    ///
+    /// assert_eq!(
+    ///     m3,
+    ///     Matrix {
+    ///         data: vec![-1.0, -4.0, -9.0, -16.0, -25.0, -36.0],
+    ///         shape: [3, 2],
+    ///         strides: [2, 1],
+    ///     }
+    /// );
+    /// ```
+    ///
+    /// Incompatible shapes:
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [2, 3],
+    /// ).unwrap();
+    ///
+    /// let err_msg = m1.hadamard(&m2).unwrap_err();
+    ///
+    /// assert_eq!(
+    ///     err_msg,
+    ///     "Incompatible shapes: (3x2) vs (2x3).",
+    /// );
+    /// ```
     pub fn hadamard(&self, other: &Self) -> Result<Matrix<T>, String> {
         self.check_identical_sizes(&other)?;
 
@@ -703,6 +1008,59 @@ where
             shape: self.shape.clone(),
             strides: [self.shape[1], 1],
         })
+    }
+
+    /// Apply a function to each element in the matrix.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// fn nth_fib(n: u32) -> u32 {
+    ///     match n {
+    ///         0 => panic!("Zero is illegal"),
+    ///         1 => 0,
+    ///         2 => 1,
+    ///         _ => nth_fib(n - 1) + nth_fib(n - 2)
+    ///     }
+    /// }
+    ///
+    /// let mut m1 = Matrix::<u32>::new(
+    ///     vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    ///     [10, 1],
+    /// ).unwrap();
+    ///
+    /// m1.apply_fn(nth_fib);
+    ///
+    /// assert_eq!(
+    ///     m1,
+    ///     Matrix {
+    ///         data: vec![0, 1, 1, 2, 3, 5, 8, 13, 21, 34],
+    ///         shape: [10, 1],
+    ///         strides: [1, 1],
+    ///     }
+    /// );
+    ///
+    /// m1.data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    ///
+    /// m1.apply_fn(|x| x.pow(2));
+    ///
+    /// assert_eq!(
+    ///     m1,
+    ///     Matrix {
+    ///         data: vec![1, 4, 9, 16, 25, 36, 49, 64, 81, 100],
+    ///         shape: [10, 1],
+    ///         strides: [1, 1],
+    ///     }
+    /// );
+    /// ```
+    pub fn apply_fn<F>(&mut self, f: F)
+    where
+        F: Fn(T) -> T,
+    {
+        for value in self.data.iter_mut() {
+            *value = f(*value);
+        }
     }
 
     fn size(&self) -> usize {
@@ -787,6 +1145,57 @@ where
 {
     type Output = Matrix<T>;
 
+    /// Add two `&Matrix<T>` objects. This is equivalent to `ref_add`, except that `+` will panic
+    /// if the shapes of the matrices are incompatible.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `self.shape != `other.shape`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let m3 = &m1 + &m2;
+    ///
+    /// assert_eq!(
+    ///     m3,
+    ///     Matrix {
+    ///         data: vec![0.0; 6],
+    ///         shape: [3, 2],
+    ///         strides: [2, 1],
+    ///     }
+    /// );
+    /// ```
+    ///
+    /// ```
+    /// # use linalg::matrix::Matrix;
+    /// use std::panic;
+    ///
+    /// let m1 = Matrix::<f64>::new(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     [2, 3],
+    /// ).unwrap();
+    ///
+    /// let m2 = Matrix::<f64>::new(
+    ///     vec![-1.0, -2.0, -3.0, -4.0, -5.0, -6.0],
+    ///     [3, 2],
+    /// ).unwrap();
+    ///
+    /// let result = panic::catch_unwind(|| &m1 + &m2);
+    ///
+    /// assert!(result.is_err());
+    /// ```
     fn add(self, other: Self) -> Self::Output {
         match self.ref_add(other) {
             Ok(m) => m,
